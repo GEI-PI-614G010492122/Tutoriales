@@ -231,3 +231,255 @@ Cualquier otra funcionalidad de Git (pull, clone, etc) puede encontrarse escribi
 ![git9](https://user-images.githubusercontent.com/38211239/157498205-6863663b-ab2c-46b3-8bd0-d8d362fabde8.png)
 
 
+<a name="container"></a>
+# 6. Remote-Containers
+
+
+Como requisito previo a este tutorial debéis tener instalado [Docker](https://www.docker.com/products/docker-desktop/) en vuestro equipo. Puede ser interesante, aunque no obligatorio, instalar también [PgAdmin](https://www.pgadmin.org/download/). Lo veremos más adelante.
+
+
+Vamos a partir del ejemplo myciao de Django que habéis visto en clase de teoría. La configuración completa que haremos en este tutorial sobre ese proyecto se puede encontrar en ```https://github.com/GEI-PI-614G010492122/Tutoriales/tree/main/VSCode/myciao```.
+
+El primer paso para configurar un entorno de desarrollo sobre Docker en VS Code será descargar la extensión asociada, previamente referenciada en este tutorial (Paso 3). 
+
+![Captura de pantalla 2022-03-23 a las 11 56 52](https://user-images.githubusercontent.com/38211239/159684960-41b1b672-999e-46dc-bec4-9ffcebfdef1f.png)
+
+Por otra parte, la extensión ```Remote-Containers``` nos permite crear un entorno de desarrollo empleando contenedores Docker de forma prácticamente transparente para el programador, pero con los beneficios que ofrece la virtualización de aplicaciones. También debemos instalarla.
+
+![Captura de pantalla 2022-03-23 a las 11 57 11](https://user-images.githubusercontent.com/38211239/159684984-fc55e97e-bfe2-4dd0-929b-61b5304c89ca.png)
+
+Tras instalar las dos extensiones previamente referenciadas, crear una configuración para soportar Docker en nuestro proyecto es tan fácil como seleccionar la opción ```Add Development Container Configuration Files``` en la Paleta de Comandos de VS Code
+
+![Captura de pantalla 2022-03-23 a las 12 08 13](https://user-images.githubusercontent.com/38211239/159686853-7fa0f3c0-f529-40e4-a0a7-644b8bc176b4.png)
+
+y posteriormente seleccionar la plantilla ```Python 3 & PostgreSQL```, que es la que más se aproxima a nuestro caso de uso.
+
+![Captura de pantalla 2022-03-23 a las 12 08 31](https://user-images.githubusercontent.com/38211239/159686864-2dc86de0-cc6a-4351-bd9f-908239dce746.png)
+
+Veremos que esto crea una carpeta ```.devcontainer``` con los ficheros de configuración/scripts: ```devcontainer.json```, ```docker-compose.yml``` y ```DockerFile```. 
+
+A continuación se proporcionan algunas adaptaciones a dichas plantillas que serán necesarias en fases posteriores del tutorial:
+## devcontainer.json
+```
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.155.1/containers/python-3-postgres
+// Update the VARIANT arg in docker-compose.yml to pick a Python version: 3, 3.8, 3.7, 3.6 
+{
+    "name": "Python 3 & PostgreSQL",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspace",
+
+    // Set *default* container specific settings.json values on container create.
+    "settings": { 
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "sqltools.connections": [{
+            "name": "Container database",
+            "driver": "PostgreSQL",
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 5432,
+            "database": "postgres",
+            "username": "postgres",
+            "password": "postgres"
+        }],
+        "python.pythonPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
+        "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+        "python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
+        "python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
+        "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
+        "python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
+        "python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
+        "python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
+        "python.linting.pylintPath": "/usr/local/py-utils/bin/pylint",
+        "python.testing.pytestPath": "/usr/local/py-utils/bin/pytest", 
+
+        // Analysing code using Django
+        "python.linting.pylintArgs": [
+            "--disable=C0111","--load-plugins", "pylint_django"
+        ]
+    },
+
+    // Add the IDs of extensions you want installed when the container is created.
+    "extensions": [
+        "ms-python.python",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+    ],
+
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [5000, 5432],
+
+    // Use 'postCreateCommand' to run commands after the container is created.
+    // "postCreateCommand": "pip install --user -r requirements.txt",
+
+    // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+    //"remoteUser": "vscode"
+}
+```
+## docker-compose.yml
+
+```
+version: '3'
+
+services:
+  
+  app:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ~/.gitconfig:/root/.gitconfig
+      - ..:/workspace
+    command: sleep infinity
+    links:
+      - 'db'
+
+  db:
+    image: postgres:latest
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD: postgres
+
+volumes:
+  postgres-data:
+```
+
+## Dockerfile
+
+```
+FROM python:latest
+
+ENV PYTHONUNBUFFERED 1
+
+RUN mkdir /workspace
+WORKDIR /workspace
+
+RUN pip install --upgrade pip
+
+# Install Python dependencies from requirements.txt if it exists
+COPY /requirements/requirements.txt requirements.txt* /workspace/
+RUN if [ -f "requirements.txt" ]; then pip install --no-cache-dir -r requirements.txt && rm requirements.txt; fi
+COPY /requirements/development.txt development.txt* /workspace/
+RUN if [ -f "development.txt" ]; then pip install --no-cache-dir -r development.txt && rm development.txt; fi
+
+# Clean up
+RUN apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+Una vez hemos aplicado los cambios pertinentes a dichos ficheros de configuración, el siguiente paso es construir los contenedores sobre los que correrá nuestra aplicación haciendo uso de las imágenes que acabamos de definir.
+
+![Captura de pantalla 2022-03-23 a las 12 45 10](https://user-images.githubusercontent.com/38211239/159692213-e32b82d3-7045-4ac4-8a90-d7466b0146a2.png)
+
+Si todo ha ido bien (debemos asegurarnos de que tenemos el servicio de docker corriendo en nuestro equipo), VS Code cambiará ligeramente la ventana que teníamos, de tal forma que en la esquina inferior izquierda veremos un rectángulo verde con el texto *Dev Container* que nos corroborará que estamos "conectados" a nuestro contenedor a través de la ventana actual del editor. Además, podremos ver que el prompt de la terminal integrada también ha cambiado, por lo que ahora los comandos que ejecutemos en dicha terminal serán invocados realmente dentro del contenedor Docker principal que hemos creado.
+
+![Captura de pantalla 2022-03-23 a las 12 35 39](https://user-images.githubusercontent.com/38211239/159691105-0d2e0b49-5de7-4899-887d-7885bdf09958.png)
+
+Podemos comprobar también fuera de VS Code, en una terminal, las imágenes de Docker que hemos generado con las definiciones aportadas (```docker images```). Como se puede apreciar se han creado dos imágenes: (1) una que contendrá nuestra aplicación y (2) otra que albergará la base de datos de la misma. Del mismo modo, también podemos comprobar los contenedores que tenemos ejecutándose a partir de dichas imágenes, es decir, instancias de las mismas que están corriendo en nuestra máquina actualmente (```docker container ls``` o ```docker ps```).
+
+![Captura de pantalla 2022-03-23 a las 12 36 46](https://user-images.githubusercontent.com/38211239/159691141-91c0b4fa-ac01-4e31-b22c-db32d19ff68a.png)
+
+Si tenemos Docker Desktop instalado, también podremos comprobar esta información desde la GUI o dashboard. 
+
+![Captura de pantalla 2022-03-23 a las 12 37 20](https://user-images.githubusercontent.com/38211239/159691171-c1b5573f-7200-4299-b0f5-d7c063148030.png)
+
+Algo interesante en este punto y que debemos diferenciar es el concepto de imagen y de volumen. Como podemos ver en el fichero ```docker-compose.yml``` se han generado dos imágenes, una para la aplicación y otra para la base de datos. Sin embargo, una diferencia fundamental entre ambas es que la imagen asociada a la base de datos define un volumen, que no es más que un directorio o fichero en el ```docker engine``` que se monta directamente en el contenedor y será el que nos proporcionará la persistencia de datos en nuestra aplicación. De hecho, podemos portar estos volúmenes entre equipos a través de un fichero comprimido, hacer backup de ellos o restaurarlos. Ver https://docs.docker.com/storage/volumes/#backup-restore-or-migrate-data-volumes
+
+![Captura de pantalla 2022-03-23 a las 12 37 39](https://user-images.githubusercontent.com/38211239/159691183-b1ab086d-b450-4955-8a7f-57b61073ebf9.png)
+
+
+<a name="django"></a>
+# 7. Django
+
+El siguiente paso es configurar nuestro proyecto Django para correr dentro del entorno Docker que hemos definido en la sección anterior. Para ello debemos de cambiar el siguiente trozo del fichero ```settings.py```
+
+
+```
+ALLOWED_HOSTS = []
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+```
+
+especificando ahora que la base de datos a utilizar será una postgreSQL indicando además el nombre, usuario y contraseña que habíamos definido en el fichero ```devcontainer.json```.
+
+```
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
+        'HOST': 'db',
+        'PORT': '5432',
+    }
+}
+```
+
+también podemos hacer uso de variables de entorno para no "cablear" la contraseña en nuestro fichero de configuración, ya que podrá hacerse público. 
+
+```
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+POSTGRES_PASSWORD = os.environ.get('POSTGRES_PASSWORD')
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'postgres',                      
+        'USER': 'postgres',
+        'PASSWORD': POSTGRES_PASSWORD,
+        'HOST': 'db',
+        'PORT': '5432', 
+    }
+}
+```
+
+en este punto ya podemos ejecutar ```python manage.py runserver 0.0.0.0:8000``` para lanzar nuestra aplicación.
+
+![Captura de pantalla 2022-03-23 a las 12 53 23](https://user-images.githubusercontent.com/38211239/159694063-676dc1fb-b89b-4e45-89c0-0217fe1d78fd.png)
+
+aunque antes debéis de estructurar/inicializar el contenido de vuestra base de datos según proceda, por lo que debéis ejecutar un ```makemigrations``` seguido de un ```migrate```.
+
+![Captura de pantalla 2022-03-23 a las 12 55 01](https://user-images.githubusercontent.com/38211239/159694092-93d21e73-a6a8-4187-9d49-99ec6edabc4e.png)
+Así como crear un nuevo superusuario.
+![Captura de pantalla 2022-03-23 a las 12 55 49](https://user-images.githubusercontent.com/38211239/159694122-af2539b2-944d-4ebc-9b2b-f0faf9e8e3d6.png)
+La aplicación ya estaría operativa en este momento.
+![Captura de pantalla 2022-03-23 a las 12 55 14](https://user-images.githubusercontent.com/38211239/159694170-f661fc2a-8cd9-4686-bfd6-89956c6c0930.png)
+
+Como complemento, podéis instalar PgAdmin para interactuar con la base de datos de vuestra aplicación. Para ello debéis de establecer la conexión con la misma, que será accesible a través del puerto 5432, tal y como hemos definido.
+![Captura de pantalla 2022-03-23 a las 13 00 39](https://user-images.githubusercontent.com/38211239/159695543-2d3fa6f4-3d9b-4652-8a25-a4906dc1df0b.png)
+Aquí podréis realizar consultas, como comprobar que el superusuario ```root``` creado previamente ha sido añadido a la base de datos.
+ 
+![Captura de pantalla 2022-03-23 a las 13 01 55](https://user-images.githubusercontent.com/38211239/159695173-53a2f46f-2460-4ff7-8d4c-07658c8d3b83.png)
+
+Nótese que las extensiones que teníamos instaladas localmente en VS Code no serán instaladas por defecto en el contenedor destino, por lo que tendremos que hacerlo nosotros de forma explícita.
+
+![Captura de pantalla 2022-03-23 a las 13 11 14](https://user-images.githubusercontent.com/38211239/159696261-1039f234-be10-4d5d-a081-663842efb406.png)
+Para cerrar la conexión con el ```Dev Container``` bastará con pinchar sobre el rectángulo verde en la esquina inferior izquierda y pulsar ```Cerrar conexión remota``` en el Panel de Comandos.
+
+![Captura de pantalla 2022-03-23 a las 13 11 29](https://user-images.githubusercontent.com/38211239/159696288-0fff5670-cb62-432b-a1c1-e60759f9b851.png)
+
+Esto no solo cerrará la conexión en VS Code, sino que finalizará la ejecución de los contenedores asociados.
+![Captura de pantalla 2022-03-23 a las 13 13 05](https://user-images.githubusercontent.com/38211239/159696463-f12cd92d-5a54-49fe-8f97-58b8c4daddbf.png)
+
+<img width="1215" alt="Captura de pantalla 2022-03-23 a las 13 13 52" src="https://user-images.githubusercontent.com/38211239/159696675-bdee5f75-1cf7-4d3a-a252-774f32a03f8f.png">
+
+Como parte final de este tutorial, recordar que también podéis crear una plantilla de depuración para una aplicación django cuando creáis vuestro fichero ```launch.json```.
+<img width="1136" alt="Captura de pantalla 2022-03-27 a las 11 45 37" src="https://user-images.githubusercontent.com/38211239/160276194-2a0b3124-ca44-45c3-b17e-63043b67bacc.png">
+
