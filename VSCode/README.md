@@ -212,7 +212,9 @@ Veremos que nuestro commit aparece en el bloque "COMMITS" de la side bar.
 </p>
 
 
-Para hacer el commit público (hasta ahora sólo está en local), debemos hacer un push. Para ello pinchamos sobre el icono con una nube que aparece dentro del bloque COMMITS "Publish main to GitHub". Recordad que si no existe el repositorio en GitHub, primero debéis crearlo y ejecutar ```git remote add origin git@github.com:LopezCastroRoberto/finalexample.git``` para asociar vuestra rama main/master con el origin.
+Para hacer el commit público (hasta ahora sólo está en local), debemos hacer un push. Para ello pinchamos sobre el icono con una nube que aparece dentro del bloque COMMITS "Publish main to GitHub", o dentro del propio commit que acabamos de realizar. Recordad que si no existe el repositorio en GitHub, primero debéis crearlo y ejecutar ```git remote add origin git@github.com:LopezCastroRoberto/finalexample.git``` para asociar vuestra rama main/master con el origin. En commits posteriores el Push aparecerá representado simplemente mediante ↑.
+
+**Cuidado**: puede que en algunos casos tengáis configurado el Push para que haga un Push force, con los riesgos que esto supone. Debéis ser conscientes de esto y cambiar la configuración en caso de que sea necesario.
 
 
 <p align="center">
